@@ -19,7 +19,7 @@ namespace Comp584Server.Controllers
         public async Task<ActionResult<IEnumerable<Country>>> GetCountries()
         {
             return await context.Countries.ToListAsync();
-        }
+        }   
 
         // GET: api/Countries/5
         [HttpGet("{id}")]
