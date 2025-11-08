@@ -2,6 +2,7 @@
 using CsvHelper;
 using CsvHelper.Configuration;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
@@ -12,7 +13,7 @@ namespace Comp584Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class SeedController(Comp584Context context, IHostEnvironment hostEnvironment) : ControllerBase
+    public class SeedController(Comp584Context context, IHostEnvironment hostEnvironment, RoleManager<IdentityRole> roleManager, UserManager<WorldModelUser> userManager, IConfiguration configuration) : ControllerBase
     {
         string _pathName = Path.Combine(hostEnvironment.ContentRootPath, "Data/worldcities.csv");
 
@@ -23,16 +24,19 @@ namespace Comp584Server.Controllers
                 .AsNoTracking()
                 .ToDictionaryAsync(c => c.Name, StringComparer.OrdinalIgnoreCase);
 
-            CsvConfiguration config = new(CultureInfo.InvariantCulture) { 
-                HasHeaderRecord = true, 
-                HeaderValidated = null 
-            }; 
+            CsvConfiguration config = new(CultureInfo.InvariantCulture)
+            {
+                HasHeaderRecord = true,
+                HeaderValidated = null
+            };
             using StreamReader reader = new(_pathName);
             using CsvReader csv = new(reader, config);
             List<Comp584Csv> records = csv.GetRecords<Comp584Csv>().ToList();
 
-            foreach (Comp584Csv record in records) {
-                if (!countries.ContainsKey(record.country)) {
+            foreach (Comp584Csv record in records)
+            {
+                if (!countries.ContainsKey(record.country))
+                {
                     Country country = new()
                     {
                         Name = record.country,
@@ -64,7 +68,7 @@ namespace Comp584Server.Controllers
             using StreamReader reader = new(_pathName);
             using CsvReader csv = new(reader, config);
             List<Comp584Csv> records = csv.GetRecords<Comp584Csv>().ToList();
-            
+
             int cityCount = 0;
             foreach (Comp584Csv record in records)
             {
@@ -86,6 +90,46 @@ namespace Comp584Server.Controllers
             await context.SaveChangesAsync();
 
             return new JsonResult(cityCount);
+        }
+
+        [HttpPost("Users")]
+        public async Task<ActionResult> PostUsers()
+        {
+            string administrator = "administrator";
+            string registeredUser = "registeredUser";
+
+            if (!await roleManager.RoleExistsAsync(administrator))
+            {
+                await roleManager.CreateAsync(new IdentityRole(administrator));
+            }
+            if (!await roleManager.RoleExistsAsync(registeredUser))
+            {
+                await roleManager.CreateAsync(new IdentityRole(registeredUser));
+            }
+
+            WorldModelUser adminUser = new()
+            {
+                UserName = "admin",
+                Email = "admin@gmail.com",
+                EmailConfirmed = true,
+                LockoutEnabled = false,
+                SecurityStamp = Guid.NewGuid().ToString()
+            };
+            await userManager.CreateAsync(adminUser, configuration["DefaultPasswords:Admin"]!);
+            await userManager.AddToRoleAsync(adminUser, administrator);
+
+            WorldModelUser defaultUser = new()
+            {
+                UserName = "default",
+                Email = "default@gmail.com",
+                EmailConfirmed = true,
+                LockoutEnabled = false,
+                SecurityStamp = Guid.NewGuid().ToString()
+            };
+            await userManager.CreateAsync(defaultUser, configuration["DefaultPasswords:User"]!);
+            await userManager.AddToRoleAsync(defaultUser, registeredUser);
+
+            return Ok();
         }
     }
 }
