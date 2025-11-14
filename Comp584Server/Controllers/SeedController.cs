@@ -107,29 +107,59 @@ namespace Comp584Server.Controllers
                 await roleManager.CreateAsync(new IdentityRole(registeredUser));
             }
 
-            WorldModelUser adminUser = new()
+            // Create admin user
+            var adminUser = await userManager.FindByEmailAsync("admin@gmail.com");
+            if (adminUser == null)
             {
-                UserName = "admin",
-                Email = "admin@gmail.com",
-                EmailConfirmed = true,
-                LockoutEnabled = false,
-                SecurityStamp = Guid.NewGuid().ToString()
-            };
-            await userManager.CreateAsync(adminUser, configuration["DefaultPasswords:Admin"]!);
-            await userManager.AddToRoleAsync(adminUser, administrator);
+                adminUser = new WorldModelUser
+                {
+                    UserName = "admin",
+                    Email = "admin@gmail.com",
+                    EmailConfirmed = true,
+                    LockoutEnabled = false,
+                    SecurityStamp = Guid.NewGuid().ToString()
+                };
 
-            WorldModelUser defaultUser = new()
+                var createAdminResult = await userManager.CreateAsync(adminUser, configuration["DefaultPasswords:Admin"]!);
+                if (!createAdminResult.Succeeded)
+                {
+                    return BadRequest(createAdminResult.Errors);
+                }
+            }
+
+            // Add role to admin (check if not already in role)
+            if (!await userManager.IsInRoleAsync(adminUser, administrator))
             {
-                UserName = "default",
-                Email = "default@gmail.com",
-                EmailConfirmed = true,
-                LockoutEnabled = false,
-                SecurityStamp = Guid.NewGuid().ToString()
-            };
-            await userManager.CreateAsync(defaultUser, configuration["DefaultPasswords:User"]!);
-            await userManager.AddToRoleAsync(defaultUser, registeredUser);
+                await userManager.AddToRoleAsync(adminUser, administrator);
+            }
 
-            return Ok();
+            // Create default user
+            var defaultUser = await userManager.FindByEmailAsync("default@gmail.com");
+            if (defaultUser == null)
+            {
+                defaultUser = new WorldModelUser
+                {
+                    UserName = "default",
+                    Email = "default@gmail.com",
+                    EmailConfirmed = true,
+                    LockoutEnabled = false,
+                    SecurityStamp = Guid.NewGuid().ToString()
+                };
+
+                var createUserResult = await userManager.CreateAsync(defaultUser, configuration["DefaultPasswords:User"]!);
+                if (!createUserResult.Succeeded)
+                {
+                    return BadRequest(createUserResult.Errors);
+                }
+            }
+
+            // Add role to default user (check if not already in role)
+            if (!await userManager.IsInRoleAsync(defaultUser, registeredUser))
+            {
+                await userManager.AddToRoleAsync(defaultUser, registeredUser);
+            }
+
+            return Ok("Users seeded successfully");
         }
     }
 }
