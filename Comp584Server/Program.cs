@@ -1,3 +1,4 @@
+using Comp584Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
@@ -18,6 +19,7 @@ builder.Services.AddIdentity<WorldModelUser, IdentityRole>(options =>
     options.Password.RequireDigit = true;
 })
     .AddEntityFrameworkStores<Comp584Context>();
+builder.Services.AddScoped<JwtHandler>();
 
 var app = builder.Build();
 
